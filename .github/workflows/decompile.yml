@@ -1,0 +1,106 @@
+name: Decompile Trainers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  decompile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install ILSpy CLI
+        run: dotnet tool install --global ilspycmd
+
+      - name: Download dnSpy
+        run: |
+          $url = "https://github.com/dnSpyEx/dnSpy/releases/latest/download/dnSpy-net-win64.zip"
+          Invoke-WebRequest -Uri $url -OutFile dnSpy.zip
+          Expand-Archive -Path dnSpy.zip -DestinationPath dnSpy
+        shell: pwsh
+
+      - name: Decompile with ILSpy - WD2_FLiNG_Trainer
+        run: |
+          mkdir -p output\WD2_FLiNG_Trainer_ilspy
+          ilspycmd -p -o output\WD2_FLiNG_Trainer_ilspy "WD2_FLiNG_Trainer.exe" 2>&1 || echo "ILSpy: not a .NET assembly or error"
+        shell: bash
+
+      - name: Decompile with ILSpy - WD2_FLiNG_EAC
+        run: |
+          mkdir -p output\WD2_FLiNG_EAC_ilspy
+          ilspycmd -p -o output\WD2_FLiNG_EAC_ilspy "WD2_FLiNG_EAC.exe" 2>&1 || echo "ILSpy: not a .NET assembly or error"
+        shell: bash
+
+      - name: Decompile with ILSpy - WD2_Generic_Trainer
+        run: |
+          mkdir -p output\WD2_Generic_Trainer_ilspy
+          ilspycmd -p -o output\WD2_Generic_Trainer_ilspy "WD2_Generic_Trainer.exe" 2>&1 || echo "ILSpy: not a .NET assembly or error"
+        shell: bash
+
+      - name: Decompile with ILSpy - WD2_Baracuda_Trainer
+        run: |
+          mkdir -p output\WD2_Baracuda_Trainer_ilspy
+          ilspycmd -p -o output\WD2_Baracuda_Trainer_ilspy "WD2_Baracuda_Trainer.exe" 2>&1 || echo "ILSpy: not a .NET assembly or error"
+        shell: bash
+
+      - name: Decompile with dnSpy - all exes
+        run: |
+          $exes = @(
+            "WD2_FLiNG_Trainer.exe",
+            "WD2_FLiNG_EAC.exe",
+            "WD2_Generic_Trainer.exe",
+            "WD2_Baracuda_Trainer.exe"
+          )
+          foreach ($exe in $exes) {
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($exe)
+            $outDir = "output\${name}_dnspy"
+            New-Item -ItemType Directory -Path $outDir -Force
+            Write-Host "=== Decompiling $exe with dnSpy ==="
+            & "dnSpy\dnSpy.Console.exe" "$exe" -l --all 2>&1 | Out-File -FilePath "$outDir\disassembly.txt"
+            & "dnSpy\dnSpy.Console.exe" "$exe" -l 2>&1 | Out-File -FilePath "$outDir\il_code.txt"
+          }
+        shell: pwsh
+
+      - name: Extract strings from all exes
+        run: |
+          mkdir -p output\strings
+          for f in *.exe; do
+            name=$(basename "$f" .exe)
+            echo "=== Strings from $f ===" > "output/strings/${name}_strings.txt"
+            strings "$f" >> "output/strings/${name}_strings.txt" 2>/dev/null || true
+          done
+        shell: bash
+
+      - name: Create zip archives per trainer
+        run: |
+          Compress-Archive -Path "output\WD2_FLiNG_Trainer_*" -DestinationPath "output\WD2_FLiNG_Trainer_decompiled.zip" -Force
+          Compress-Archive -Path "output\WD2_FLiNG_EAC_*" -DestinationPath "output\WD2_FLiNG_EAC_decompiled.zip" -Force
+          Compress-Archive -Path "output\WD2_Generic_Trainer_*" -DestinationPath "output\WD2_Generic_Trainer_decompiled.zip" -Force
+          Compress-Archive -Path "output\WD2_Baracuda_Trainer_*" -DestinationPath "output\WD2_Baracuda_Trainer_decompiled.zip" -Force
+          Compress-Archive -Path "output\*" -DestinationPath "output\ALL_decompiled.zip" -Force
+        shell: pwsh
+
+      - name: Upload all decompiled artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: decompiled-trainers
+          path: output/
+          retention-days: 30
+
+      - name: Commit results back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/ -f
+          git commit -m "Add decompiled source code from dnSpy + ILSpy" || echo "Nothing to commit"
+          git push
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
