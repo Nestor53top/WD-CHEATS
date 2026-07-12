@@ -1,0 +1,81 @@
+=== PE Analysis: WD2_Baracuda_Trainer.exe ===
+File size: 4444160 bytes (4340.0 KB)
+Type: PE32 x86
+Sections: 5
+
+--- Sections ---
+  .text: VirtSize=0x00008D54 VirtAddr=0x00001000 RawSize=0x00008E00 Chars=0x60000020
+  .rdata: VirtSize=0x00002114 VirtAddr=0x0000A000 RawSize=0x00002200 Chars=0x40000040
+  .data: VirtSize=0x00002ADC VirtAddr=0x0000D000 RawSize=0x00001000 Chars=0xC0000040
+  .rsrc: VirtSize=0x0042FA74 VirtAddr=0x00010000 RawSize=0x0042FC00 Chars=0x40000040
+  .reloc: VirtSize=0x00000EEA VirtAddr=0x00440000 RawSize=0x00001000 Chars=0x42000040
+
+--- ASCII strings >= 6 chars ---
+Count: 7158
+
+--- Unicode strings >= 6 chars ---
+Count: 8
+
+--- DLL imports (5) ---
+  kernel32.dll
+  user32.dll
+  advapi32.dll
+  oleaut32.dll
+  shlwapi.dll
+
+--- All .dll refs (5) ---
+  advapi32.dll
+  kernel32.dll
+  oleaut32.dll
+  shlwapi.dll
+  user32.dll
+
+--- Language detection ---
+  FOUND Delphi VCL (1): ['TForm']
+  FOUND Borland/Delphi (1): ['Delphi']
+  FOUND FreePascal/Lazarus (1): ['FPC']
+  FOUND Qt (4): ['Qt4', 'qt4', 'QT5', 'qT4']
+  FOUND MFC (2): ['mfc', 'mFC']
+  FOUND C++ MSVC (1): ['Microsoft Visual C++']
+
+--- Interesting strings ---
+  [TRAINER] 23: ['mod', 'cheat', 'TRAINER', 'Mod', 'Trainer']
+  [MEMORY] 2: ['VirtualAlloc', 'ReadProcessMemory']
+  [FEATURE] 1: ['GoD']
+  [PROCESS] 4: ['ProcessId', 'ThreadId']
+
+--- Version info ---
+
+--- First 512 bytes hex ---
+  0000: 4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00  MZ..............
+  0010: B8 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00  ........@.......
+  0020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  0030: 00 00 00 00 00 00 00 00 00 00 00 00 E8 00 00 00  ................
+  0040: 0E 1F BA 0E 00 B4 09 CD 21 B8 01 4C CD 21 54 68  ........!..L.!Th
+  0050: 69 73 20 70 72 6F 67 72 61 6D 20 63 61 6E 6E 6F  is program canno
+  0060: 74 20 62 65 20 72 75 6E 20 69 6E 20 44 4F 53 20  t be run in DOS 
+  0070: 6D 6F 64 65 2E 0D 0D 0A 24 00 00 00 00 00 00 00  mode....$.......
+  0080: 97 EF 55 84 D3 8E 3B D7 D3 8E 3B D7 D3 8E 3B D7  ..U...;...;...;.
+  0090: CD DC BF D7 CC 8E 3B D7 CD DC AE D7 C3 8E 3B D7  ......;.......;.
+  00A0: CD DC B8 D7 B3 8E 3B D7 F4 48 40 D7 DA 8E 3B D7  ......;..H@...;.
+  00B0: D3 8E 3A D7 B0 8E 3B D7 CD DC B1 D7 D1 8E 3B D7  ..:...;.......;.
+  00C0: CD DC AF D7 D2 8E 3B D7 CD DC AA D7 D2 8E 3B D7  ......;.......;.
+  00D0: 52 69 63 68 D3 8E 3B D7 00 00 00 00 00 00 00 00  Rich..;.........
+  00E0: 00 00 00 00 00 00 00 00 50 45 00 00 4C 01 05 00  ........PE..L...
+  00F0: 98 A1 CD 51 00 00 00 00 00 00 00 00 E0 00 02 01  ...Q............
+  0100: 0B 01 09 00 00 8E 00 00 00 3E 43 00 00 00 00 00  .........>C.....
+  0110: EB 15 00 00 00 10 00 00 00 A0 00 00 00 00 40 00  ..............@.
+  0120: 00 10 00 00 00 02 00 00 05 00 00 00 00 00 00 00  ................
+  0130: 05 00 00 00 00 00 00 00 00 10 44 00 00 04 00 00  ..........D.....
+  0140: 63 11 01 00 02 00 40 81 00 00 10 00 00 10 00 00  c.....@.........
+  0150: 00 00 10 00 00 10 00 00 00 00 00 00 10 00 00 00  ................
+  0160: 00 00 00 00 00 00 00 00 0C B9 00 00 64 00 00 00  ............d...
+  0170: 00 00 01 00 74 FA 42 00 00 00 00 00 00 00 00 00  ....t.B.........
+  0180: 00 00 00 00 00 00 00 00 00 00 44 00 48 08 00 00  ..........D.H...
+  0190: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  01A0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  01B0: 08 B5 00 00 40 00 00 00 00 00 00 00 00 00 00 00  ....@...........
+  01C0: 00 A0 00 00 5C 01 00 00 00 00 00 00 00 00 00 00  ....\...........
+  01D0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  01E0: 2E 74 65 78 74 00 00 00 54 8D 00 00 00 10 00 00  .text...T.......
+  01F0: 00 8E 00 00 00 04 00 00 00 00 00 00 00 00 00 00  ................

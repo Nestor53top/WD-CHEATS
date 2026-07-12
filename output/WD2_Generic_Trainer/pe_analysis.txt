@@ -1,0 +1,90 @@
+=== PE Analysis: WD2_Generic_Trainer.exe ===
+File size: 1434624 bytes (1401.0 KB)
+Type: PE32+ x86-64
+Sections: 6
+
+--- Sections ---
+  .text: VirtSize=0x000791BD VirtAddr=0x00001000 RawSize=0x00079200 Chars=0x60000020
+  .rdata: VirtSize=0x000256F0 VirtAddr=0x0007B000 RawSize=0x00025800 Chars=0x40000040
+  .data: VirtSize=0x0000B800 VirtAddr=0x000A1000 RawSize=0x00004400 Chars=0xC0000040
+  .pdata: VirtSize=0x00005F88 VirtAddr=0x000AD000 RawSize=0x00006000 Chars=0x40000040
+  .rsrc: VirtSize=0x000B3DE8 VirtAddr=0x000B3000 RawSize=0x000B3E00 Chars=0x40000040
+  .reloc: VirtSize=0x00001310 VirtAddr=0x00167000 RawSize=0x00001400 Chars=0x42000040
+
+--- ASCII strings >= 6 chars ---
+Count: 3519
+
+--- Unicode strings >= 6 chars ---
+Count: 439
+
+--- DLL imports (11) ---
+  kernel32.dll
+  user32.dll
+  advapi32.dll
+  ole32.dll
+  comctl32.dll
+  gdi32.dll
+  shell32.dll
+  winmm.dll
+  version.dll
+  comdlg32.dll
+  psapi.dll
+
+--- All .dll refs (12) ---
+  advapi32.dll
+  comctl32.dll
+  comdlg32.dll
+  gdi32.dll
+  gdiplus.dll
+  kernel32.dll
+  ole32.dll
+  shell32.dll
+  trspeedhack_x64.dll
+  user32.dll
+  version.dll
+  winmm.dll
+
+--- Language detection ---
+  FOUND Qt (1): ['qt4']
+
+--- Interesting strings ---
+  [TRAINER] 26: ['Hack', 'mod', 'Mod']
+  [MEMORY] 7: ['WriteProcessMemory', 'VirtualAlloc', 'ReadProcessMemory', 'OpenProcess']
+  [FEATURE] 19: ['money', 'Health', 'Speed', 'Money']
+  [PROCESS] 4: ['ThreadId', 'ProcessId']
+
+--- Version info ---
+
+--- First 512 bytes hex ---
+  0000: 4D 5A 90 00 03 00 00 00 04 00 00 00 FF FF 00 00  MZ..............
+  0010: B8 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00  ........@.......
+  0020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  0030: 00 00 00 00 00 00 00 00 00 00 00 00 F0 00 00 00  ................
+  0040: 0E 1F BA 0E 00 B4 09 CD 21 B8 01 4C CD 21 54 68  ........!..L.!Th
+  0050: 69 73 20 70 72 6F 67 72 61 6D 20 63 61 6E 6E 6F  is program canno
+  0060: 74 20 62 65 20 72 75 6E 20 69 6E 20 44 4F 53 20  t be run in DOS 
+  0070: 6D 6F 64 65 2E 0D 0D 0A 24 00 00 00 00 00 00 00  mode....$.......
+  0080: 1B B4 CB 45 5F D5 A5 16 5F D5 A5 16 5F D5 A5 16  ...E_..._..._...
+  0090: 19 84 7A 16 50 D5 A5 16 19 84 45 16 82 D5 A5 16  ..z.P.....E.....
+  00A0: 19 84 44 16 D9 D5 A5 16 56 AD 36 16 46 D5 A5 16  ..D.....V.6.F...
+  00B0: 5F D5 A4 16 A2 D5 A5 16 EA 4B 40 16 4A D5 A5 16  _........K@.J...
+  00C0: 52 87 7E 16 5E D5 A5 16 5F D5 32 16 5E D5 A5 16  R.~.^..._.2.^...
+  00D0: EA 4B 7B 16 5E D5 A5 16 52 69 63 68 5F D5 A5 16  .K{.^...Rich_...
+  00E0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  00F0: 50 45 00 00 64 86 06 00 C6 68 96 5A 00 00 00 00  PE..d....h.Z....
+  0100: 00 00 00 00 F0 00 22 00 0B 02 0C 00 00 92 07 00  ......".........
+  0110: 00 C2 0E 00 00 00 00 00 04 23 04 00 00 10 00 00  .........#......
+  0120: 00 00 00 40 01 00 00 00 00 10 00 00 00 02 00 00  ...@............
+  0130: 05 00 02 00 00 00 00 00 05 00 02 00 00 00 00 00  ................
+  0140: 00 90 16 00 00 04 00 00 00 00 00 00 02 00 60 81  ..............`.
+  0150: 00 00 10 00 00 00 00 00 00 10 00 00 00 00 00 00  ................
+  0160: 00 00 10 00 00 00 00 00 00 10 00 00 00 00 00 00  ................
+  0170: 00 00 00 00 10 00 00 00 00 00 00 00 00 00 00 00  ................
+  0180: C0 EB 09 00 04 01 00 00 00 30 0B 00 E8 3D 0B 00  .........0...=..
+  0190: 00 D0 0A 00 88 5F 00 00 00 00 00 00 00 00 00 00  ....._..........
+  01A0: 00 70 16 00 10 13 00 00 00 00 00 00 00 00 00 00  .p..............
+  01B0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  01C0: 00 00 00 00 00 00 00 00 20 DA 08 00 70 00 00 00  ........ ...p...
+  01D0: 00 00 00 00 00 00 00 00 00 B0 07 00 A8 07 00 00  ................
+  01E0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  01F0: 00 00 00 00 00 00 00 00 2E 74 65 78 74 00 00 00  .........text...

@@ -1,0 +1,6 @@
+dnSpy Analysis for WD2_FLiNG_EAC.exe
+=======================
+dnSpy is a GUI decompiler for .NET assemblies.
+This PE is native code - dnSpy cannot decompile it.
+Download dnSpy from: https://github.com/dnSpyEx/dnSpy/releases
+to inspect manually in GUI.
