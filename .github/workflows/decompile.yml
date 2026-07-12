@@ -20,435 +20,255 @@ jobs:
         run: dotnet tool install --global ilspycmd
 
       - name: Download dnSpyEx
+        shell: pwsh
         run: |
           $url = "https://github.com/dnSpyEx/dnSpy/releases/latest/download/dnSpy-net-win64.zip"
           Invoke-WebRequest -Uri $url -OutFile dnSpy.zip
           Expand-Archive -Path dnSpy.zip -DestinationPath dnSpy -Force
-        shell: pwsh
 
-      - name: Try ILSpy on all exes
+      - name: Analyze all trainers (ILSpy + dnSpy + PE + strings)
+        shell: pwsh
         run: |
+          $ErrorActionPreference = "Continue"
           $exes = @(
-            "WD2_FLiNG_Trainer.exe",
-            "WD2_FLiNG_EAC.exe",
-            "WD2_Generic_Trainer.exe",
-            "WD2_Baracuda_Trainer.exe"
+            @{ Name="WD2_FLiNG_Trainer"; File="WD2_FLiNG_Trainer.exe" },
+            @{ Name="WD2_FLiNG_EAC"; File="WD2_FLiNG_EAC.exe" },
+            @{ Name="WD2_Generic_Trainer"; File="WD2_Generic_Trainer.exe" },
+            @{ Name="WD2_Baracuda_Trainer"; File="WD2_Baracuda_Trainer.exe" }
           )
-          foreach ($exe in $exes) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
-            $outDir = "output\${name}"
-            New-Item -ItemType Directory -Path $outDir -Force
 
-            Write-Host "=== ILSpy: $exe ==="
-            try {
-              ilspycmd -p -o "$outDir\ilspy_project" "$exe" 2>&1
-              Write-Host "ILSpy decompiled OK"
-            } catch {
-              "ILSpy result: Not a .NET assembly - $($_.Exception.Message)" | Out-File "$outDir\ilspy_result.txt"
-              Write-Host "ILSpy: not .NET"
-            }
-          }
-        shell: pwsh
-
-      - name: Try dnSpy on all exes
-        run: |
-          $exes = @(
-            "WD2_FLiNG_Trainer.exe",
-            "WD2_FLiNG_EAC.exe",
-            "WD2_Generic_Trainer.exe",
-            "WD2_Baracuda_Trainer.exe"
-          )
-          foreach ($exe in $exes) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
-            $outDir = "output\${name}"
-            New-Item -ItemType Directory -Path $outDir -Force
-
-            Write-Host "=== dnSpy: $exe ==="
-            $dnSpyExe = Get-ChildItem -Path "dnSpy" -Recurse -Filter "dnSpy.exe" | Select-Object -First 1
-            if ($dnSpyExe) {
-              "dnSpy found at: $($dnSpyExe.FullName)" | Out-File "$outDir\dnspy_result.txt"
-              "dnSpy is a GUI tool - manual inspection required for native PE analysis." | Out-File "$outDir\dnspy_result.txt" -Append
-              "dnSpy can decompile .NET assemblies only. This PE is native code." | Out-File "$outDir\dnspy_result.txt" -Append
-            } else {
-              "dnSpy.exe not found in package" | Out-File "$outDir\dnspy_result.txt"
-            }
-          }
-        shell: pwsh
-
-      - name: Deep PE analysis via C# script
-        run: |
-          $script = @'
-          using System;
-          using System.IO;
-          using System.Text;
-          using System.Reflection.PortableExecutable;
-          using System.Reflection.Metadata;
-          using System.Collections.Generic;
-
-          class Program
-          {
-              static void Main(string[] args)
-              {
-                  string[] exes = {
-                      "WD2_FLiNG_Trainer.exe",
-                      "WD2_FLiNG_EAC.exe",
-                      "WD2_Generic_Trainer.exe",
-                      "WD2_Baracuda_Trainer.exe"
-                  };
-
-                  foreach (var exe in exes)
-                  {
-                      var name = Path.GetFileNameWithoutExtension(exe);
-                      var outDir = $"output/{name}";
-                      Directory.CreateDirectory(outDir);
-
-                      try
-                      {
-                          var sb = new StringBuilder();
-                          sb.AppendLine($"=== PE Analysis: {exe} ===");
-                          sb.AppendLine($"Size: {new FileInfo(exe).Length} bytes");
-                          sb.AppendLine();
-
-                          using var fs = new FileStream(exe, FileMode.Open, FileAccess.Read);
-                          using var peReader = new PEReader(fs);
-
-                          var hdr = peReader.PEHeaders;
-                          sb.AppendLine($"Machine: {hdr.CoffHeader.Machine}");
-                          sb.AppendLine($"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(hdr.CoffHeader.TimeDateStamp)}");
-                          sb.AppendLine($"Subsystem: {hdr.PEHeaders.PEHeader.Subsystem}");
-                          sb.AppendLine($"DLL Characteristics: {hdr.PEHeaders.PEHeader.DllCharacteristics}");
-                          sb.AppendLine($"Image base: 0x{hdr.PEHeaders.PEHeader.ImageBase:X}");
-                          sb.AppendLine($"Section alignment: 0x{hdr.PEHeaders.PEHeader.SectionAlignment:X}");
-                          sb.AppendLine($"File alignment: 0x{hdr.PEHeaders.PEHeader.FileAlignment:X}");
-                          sb.AppendLine($"Subsystem major: {hdr.PEHeaders.PEHeader.MajorSubsystemVersion}");
-                          sb.AppendLine($"Subsystem minor: {hdr.PEHeaders.PEHeader.MinorSubsystemVersion}");
-                          sb.AppendLine($"Image major: {hdr.PEHeaders.PEHeader.MajorImageVersion}");
-                          sb.AppendLine($"Image minor: {hdr.PEHeaders.PEHeader.MinorImageVersion}");
-                          sb.AppendLine($"Stack reserve: 0x{hdr.PEHeaders.PEHeader.SizeOfStackReserve:X}");
-                          sb.AppendLine($"Stack commit: 0x{hdr.PEHeaders.PEHeader.SizeOfStackCommit:X}");
-                          sb.AppendLine($"Heap reserve: 0x{hdr.PEHeaders.PEHeader.SizeOfHeapReserve:X}");
-                          sb.AppendLine($"Heap commit: 0x{hdr.PEHeaders.PEHeader.SizeOfHeapCommit:X}");
-                          sb.AppendLine();
-
-                          sb.AppendLine("--- Sections ---");
-                          foreach (var sec in hdr.SectionHeaders)
-                          {
-                              sb.AppendLine($"  {sec.Name}: VirtualSize=0x{sec.VirtualSize:X} VirtualAddress=0x{sec.VirtualAddress:X} RawSize=0x{sec.RawDataSize:X} Chars={sec.SectionCharacteristics}");
-                          }
-                          sb.AppendLine();
-
-                          sb.AppendLine("--- Data Directories ---");
-                          var dirs = hdr.PEHeaders.PEHeader.DataDirectories;
-                          string[] dirNames = { "Export", "Import", "Resource", "Exception", "Certificate", "BaseRelocation", "Debug", "Architecture", "GlobalPtr", "TLS", "LoadConfig", "BoundImport", "IAT", "DelayImport", "CLR", "Reserved" };
-                          for (int i = 0; i < dirs.Count && i < dirNames.Length; i++)
-                          {
-                              var d = dirs[i];
-                              if (d.VirtualAddress != 0 || d.Size != 0)
-                                  sb.AppendLine($"  [{i}] {dirNames[i]}: RVA=0x{d.VirtualAddress:X} Size=0x{d.Size:X}");
-                          }
-                          sb.AppendLine();
-
-                          // Has managed metadata?
-                          bool hasCLR = hdr.CorHeader != null;
-                          sb.AppendLine($".NET CLR Header: {(hasCLR ? "YES" : "NO")}");
-                          if (hasCLR)
-                          {
-                              var clr = hdr.CorHeader.Value;
-                              sb.AppendLine($"  Flags: 0x{clr.Flags:X}");
-                              sb.AppendLine($"  Metadata RVA: 0x{clr.MetadataTable RVA:X}");
-                              sb.AppendLine($"  Entry point token: 0x{clr.EntryPointTokenOrRVA:X}");
-                          }
-                          sb.AppendLine();
-
-                          // Try to read imports
-                          sb.AppendLine("--- Import Analysis ---");
-                          try
-                          {
-                              var metadataReader = peReader.GetMetadataReader();
-                              sb.AppendLine($"MetadataTables: Version={metadataReader.VersionString}");
-                              sb.AppendLine($"Assembly count: {metadataReader.GetTableRowCount(TableIndex.AssemblyDef)}");
-                              sb.AppendLine($"TypeRef count: {metadataReader.GetTableRowCount(TableIndex.TypeRef)}");
-                              sb.AppendLine($"MemberRef count: {metadataReader.GetTableRowCount(TableIndex.MemberRef)}");
-
-                              // List types
-                              foreach (var typeHandle in metadataReader.TypeDefinitions)
-                              {
-                                  var typeDef = metadataReader.GetTypeDefinition(typeHandle);
-                                  var ns = metadataReader.GetString(typeDef.Namespace);
-                                  var nm = metadataReader.GetString(typeDef.Name);
-                                  sb.AppendLine($"  Type: {(ns.Length > 0 ? ns + "." : "")}{nm}");
-                              }
-                          }
-                          catch (Exception ex)
-                          {
-                              sb.AppendLine($"  No .NET metadata: {ex.Message}");
-                          }
-                          sb.AppendLine();
-
-                          // Read PE resources
-                          sb.AppendLine("--- Resources ---");
-                          try
-                          {
-                              if (peReader.HasMetadata)
-                              {
-                                  var mr = peReader.GetMetadataReader();
-                                  sb.AppendLine($"Has metadata: Yes, {mr.GetTableRowCount(TableIndex.AssemblyDef)} assemblies");
-                              }
-                              else
-                              {
-                                  sb.AppendLine("Has metadata: No (native PE)");
-                              }
-                          }
-                          catch
-                          {
-                              sb.AppendLine("Metadata not readable");
-                          }
-
-                          // Hex dump of first 512 bytes
-                          sb.AppendLine();
-                          sb.AppendLine("--- First 256 bytes hex ---");
-                          fs.Position = 0;
-                          var buf = new byte[256];
-                          fs.Read(buf, 0, 256);
-                          for (int i = 0; i < 256; i += 16)
-                          {
-                              var hex = "";
-                              var ascii = "";
-                              for (int j = 0; j < 16 && i + j < 256; j++)
-                              {
-                                  hex += $"{buf[i + j]:X2} ";
-                                  ascii += (buf[i + j] >= 32 && buf[i + j] < 127) ? (char)buf[i + j] : '.';
-                              }
-                              sb.AppendLine($"  {i:X4}: {hex,-48} {ascii}");
-                          }
-
-                          File.WriteAllText($"{outDir}/pe_analysis.txt", sb.ToString());
-                          Console.WriteLine($"OK: {exe}");
-                      }
-                      catch (Exception ex)
-                      {
-                          File.WriteAllText($"{outDir}/pe_analysis.txt", $"Error: {ex.Message}");
-                          Console.WriteLine($"ERROR: {exe}: {ex.Message}");
-                      }
-                  }
-              }
-          }
-          '@
-
-          $csproj = @"
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
-              <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-            </PropertyGroup>
-          </Project>
-          "@
-
-          New-Item -ItemType Directory -Path "pe_analyzer" -Force
-          $script | Out-File "pe_analyzer/Program.cs" -Encoding UTF8
-          $csproj | Out-File "pe_analyzer/pe_analyzer.csproj" -Encoding UTF8
-          cd pe_analyzer
-          dotnet run 2>&1
-          cd ..
-
-          # Copy results to output folders
-          foreach ($exe in @("WD2_FLiNG_Trainer","WD2_FLiNG_EAC","WD2_Generic_Trainer","WD2_Baracuda_Trainer")) {
-            if (Test-Path "pe_analyzer/$exe-pe_analysis.txt") {
-              Copy-Item "pe_analyzer/$exe-pe_analysis.txt" "output/$exe/pe_analysis.txt" -Force 2>$null
-            }
-          }
-        shell: pwsh
-
-      - name: Extract all strings from exes
-        run: |
-          $exes = @(
-            "WD2_FLiNG_Trainer.exe",
-            "WD2_FLiNG_EAC.exe",
-            "WD2_Generic_Trainer.exe",
-            "WD2_Baracuda_Trainer.exe"
-          )
-          foreach ($exe in $exes) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
+          foreach ($item in $exes) {
+            $name = $item.Name
+            $file = $item.File
             $outDir = "output\$name"
-            New-Item -ItemType Directory -Path $outDir -Force
+            New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-            Write-Host "=== Extracting strings: $exe ==="
+            Write-Host "`n==============================="
+            Write-Host "ANALYZING: $file"
+            Write-Host "==============================="
 
-            # ASCII strings (min 6 chars)
-            $bytes = [IO.File]::ReadAllBytes($exe)
+            # --- ILSpy ---
+            Write-Host "`n--- ILSpy decompilation ---"
+            $ilspyOut = ""
+            try {
+              $ilspyOut = & ilspycmd -p -o "$outDir\ilspy_project" "$file" 2>&1 | Out-String
+            } catch {
+              $ilspyOut = $_.Exception.Message
+            }
+            if ($ilspyOut -match "managed metadata") {
+              "NOT a .NET assembly. ILSpy cannot decompile native PE.`n`nILSpy output:`n$ilspyOut" | Out-File "$outDir\ilspy_result.txt"
+              Write-Host "ILSpy: not .NET assembly"
+            } else {
+              "ILSpy decompilation completed.`n`nOutput:`n$ilspyOut" | Out-File "$outDir\ilspy_result.txt"
+              Write-Host "ILSpy: done"
+            }
+
+            # --- dnSpy ---
+            Write-Host "--- dnSpy analysis ---"
+            $dnSpyExe = Get-ChildItem -Path "dnSpy" -Recurse -Filter "dnSpy.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            @"
+dnSpy Analysis for $file
+========================
+dnSpy is a GUI decompiler for .NET assemblies.
+This PE file is a native executable (not .NET).
+dnSpy cannot decompile it directly.
+
+dnSpy GUI is available in the dnSpy/ folder for manual inspection.
+For native code, use Ghidra or IDA Pro for full disassembly.
+"@ | Out-File "$outDir\dnspy_result.txt"
+            Write-Host "dnSpy: native PE, GUI-only"
+
+            # --- PE Header Analysis ---
+            Write-Host "--- PE header analysis ---"
+            $bytes = [IO.File]::ReadAllBytes($file)
+            $size = $bytes.Length
+
+            # Parse PE header manually
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+            $peSig = [Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4)
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            $numSections = [BitConverter]::ToUInt16($bytes, $peOffset + 6)
+            $timestamp = [BitConverter]::ToUInt32($bytes, $peOffset + 4)
+            $optHeaderOffset = $peOffset + 24
+            $optMagic = [BitConverter]::ToUInt16($bytes, $optHeaderOffset)
+            $is64 = $optMagic -eq 0x20B
+
+            $machineStr = switch ($machine) {
+              0x14c { "x86 (i386)" }
+              0x8664 { "x86-64 (AMD64)" }
+              0x1c0 { "ARM" }
+              0xAA64 { "ARM64" }
+              default { "Unknown (0x$($machine.ToString('X4')))" }
+            }
+
+            $peInfo = @"
+PE Header Analysis: $file
+=========================
+File size: $size bytes ($([Math]::Round($size/1024, 1)) KB)
+PE Signature: $peSig
+Machine: $machineStr (0x$($machine.ToString('X4')))
+Sections: $numSections
+Timestamp: $([DateTimeOffset]::FromUnixTimeSeconds($timestamp).ToString('yyyy-MM-dd HH:mm:ss UTC'))
+PE Type: $(if ($is64) { 'PE32+ (64-bit)' } else { 'PE32 (32-bit)' })
+
+"@
+
+            # Parse section headers
+            $sectionStart = $optHeaderOffset + if ($is64) { 240 } else { 224 }
+            $peInfo += "Sections:`n"
+            for ($i = 0; $i -lt $numSections -and ($sectionStart + $i * 40 + 40) -le $bytes.Length; $i++) {
+              $off = $sectionStart + $i * 40
+              $secName = [Text.Encoding]::ASCII.GetString($bytes, $off, 8).TrimEnd([char]0)
+              $virtSize = [BitConverter]::ToUInt32($bytes, $off + 8)
+              $virtAddr = [BitConverter]::ToUInt32($bytes, $off + 12)
+              $rawSize = [BitConverter]::ToUInt32($bytes, $off + 16)
+              $rawAddr = [BitConverter]::ToUInt32($bytes, $off + 20)
+              $chars = [BitConverter]::ToUInt32($bytes, $off + 36)
+              $peInfo += "  $secName : VirtSize=0x$($virtSize.ToString('X8')) VirtAddr=0x$($virtAddr.ToString('X8')) RawSize=0x$($rawSize.ToString('X8')) Chars=0x$($chars.ToString('X8'))`n"
+            }
+
+            $peInfo | Out-File "$outDir\pe_headers.txt"
+            Write-Host "PE headers: done"
+
+            # --- Import analysis ---
+            Write-Host "--- Import analysis ---"
+            $text = [Text.Encoding]::ASCII.GetString($bytes)
+            $dllNames = @("kernel32.dll","user32.dll","advapi32.dll","ntdll.dll","ole32.dll","comctl32.dll",
+              "gdi32.dll","shell32.dll","msvcrt.dll","ws2_32.dll","wininet.dll","urlmon.dll",
+              "crypt32.dll","winmm.dll","mpr.dll","imm32.dll","version.dll","comdlg32.dll",
+              "netapi32.dll","psapi.dll","secur32.dll","shlwapi.dll","userenv.dll","uxtheme.dll",
+              "dwmapi.dll","oleaut32.dll","setupapi.dll","dbghelp.dll","imagehlp.dll","Rpcrt4.dll",
+              "wldap32.dll","mscoree.dll","d3d9.dll","d3d11.dll","opengl32.dll","glu32.dll",
+              "mswsock.dll","wshtcpip.dll","winhttp.dll","rasapi32.dll","iphlpapi.dll",
+              "mpr.dll","cfgmgr32.dll","bcrypt.dll","ncrypt.dll","propsys.dll","dwrite.dll",
+              "d2d1.dll","wtsapi32.dll","powrprof.dll","dxgi.dll","d3dcompiler_47.dll")
+
+            $foundDlls = @()
+            foreach ($dll in $dllNames) {
+              if ($text.ToLower().Contains($dll)) { $foundDlls += $dll }
+            }
+            $allDllRefs = [regex]::Matches($text, "(?i)[a-zA-Z0-9_\-]+\.dll") | ForEach-Object { $_.Value.ToLower() } | Sort-Object -Unique
+
+            @"
+Import Analysis: $file
+======================
+Detected Windows DLL imports ($($foundDlls.Count)):
+$($foundDlls -join "`n")
+
+All .dll references found ($($allDllRefs.Count)):
+$($allDllRefs -join "`n")
+"@ | Out-File "$outDir\imports.txt"
+            Write-Host "Imports: $($foundDlls.Count) DLLs"
+
+            # --- Strings extraction ---
+            Write-Host "--- String extraction ---"
             $asciiStrings = @()
             $current = ""
             for ($i = 0; $i -lt $bytes.Length; $i++) {
               $b = $bytes[$i]
-              if ($b -ge 32 -and $b -lt 127) {
-                $current += [char]$b
-              } else {
-                if ($current.Length -ge 6) { $asciiStrings += $current }
-                $current = ""
-              }
+              if ($b -ge 32 -and $b -lt 127) { $current += [char]$b }
+              else { if ($current.Length -ge 6) { $asciiStrings += $current }; $current = "" }
             }
 
-            # Unicode strings (min 6 chars)
             $unicodeStrings = @()
             $current = ""
             for ($i = 0; $i -lt $bytes.Length - 1; $i += 2) {
               $w = [BitConverter]::ToUInt16($bytes, $i)
-              if ($w -ge 32 -and $w -lt 127) {
-                $current += [char]$w
-              } else {
-                if ($current.Length -ge 6) { $unicodeStrings += $current }
-                $current = ""
-              }
+              if ($w -ge 32 -and $w -lt 127) { $current += [char]$w }
+              else { if ($current.Length -ge 6) { $unicodeStrings += $current }; $current = "" }
             }
 
-            $result = "=== ASCII Strings (min 6 chars) ===`n"
-            $result += ($asciiStrings -join "`n")
-            $result += "`n`n=== Unicode Strings (min 6 chars) ===`n"
-            $result += ($unicodeStrings -join "`n")
-            $result | Out-File "$outDir/strings.txt" -Encoding UTF8
-
-            Write-Host "  ASCII: $($asciiStrings.Count), Unicode: $($unicodeStrings.Count)"
-          }
-        shell: pwsh
-
-      - name: Extract PE imports
-        run: |
-          $exes = @(
-            "WD2_FLiNG_Trainer.exe",
-            "WD2_FLiNG_EAC.exe",
-            "WD2_Generic_Trainer.exe",
-            "WD2_Baracuda_Trainer.exe"
-          )
-          foreach ($exe in $exes) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
-            $outDir = "output\$name"
-
-            $bytes = [IO.File]::ReadAllBytes($exe)
-
-            # Find DLL names in import table (common Windows DLLs)
-            $dllNames = @("kernel32.dll","user32.dll","advapi32.dll","ntdll.dll","ole32.dll","comctl32.dll",
-                          "gdi32.dll","shell32.dll","msvcrt.dll","ws2_32.dll","wininet.dll","urlmon.dll",
-                          "crypt32.dll","wldap32.dll","winmm.dll","mpr.dll","imm32.dll","version.dll",
-                          "comdlg32.dll","netapi32.dll","psapi.dll","secur32.dll","shlwapi.dll",
-                          "userenv.dll","uxtheme.dll","dwmapi.dll","propsys.dll","shell32.dll",
-                          "mscoree.dll","mscorlib.dll","mscorwks.dll","d3d9.dll","d3d11.dll",
-                          "opengl32.dll","glu32.dll","dbghelp.dll","imagehlp.dll","Rpcrt4.dll")
-
-            $found = @()
-            $text = [Text.Encoding]::ASCII.GetString($bytes)
-            foreach ($dll in $dllNames) {
-              if ($text.ToLower().Contains($dll.ToLower())) {
-                $found += $dll
-              }
-            }
-
-            # Also find all string references that look like DLL imports
-            $importPattern = [regex]::Matches($text, "[a-zA-Z0-9_]+\.dll")
-            $allDlls = @()
-            foreach ($m in $importPattern) {
-              $val = $m.Value.ToLower()
-              if ($val -notin $allDlls) { $allDlls += $val }
-            }
-
-            $result = "=== Detected DLL imports ===`n"
-            $result += ($found -join "`n")
-            $result += "`n`n=== All .dll references found ===`n"
-            $result += ($allDlls -join "`n")
-            $result | Out-File "$outDir/imports.txt" -Encoding UTF8
-          }
-        shell: pwsh
-
-      - name: Extract PE resources
-        run: |
-          $exes = @(
-            "WD2_FLiNG_Trainer.exe",
-            "WD2_FLiNG_EAC.exe",
-            "WD2_Generic_Trainer.exe",
-            "WD2_Baracuda_Trainer.exe"
-          )
-          foreach ($exe in $exes) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
-            $outDir = "output\$name"
-            New-Item -ItemType Directory -Path "$outDir\resources" -Force
-
-            Write-Host "=== Extracting resources: $exe ==="
-
-            $bytes = [IO.File]::ReadAllBytes($exe)
-            $text = [Text.Encoding]::ASCII.GetString($bytes)
-
-            # Find RT_ICON, RT_BITMAP, RT_DIALOG, RT_STRING, RT_VERSION patterns
-            $resInfo = "=== Resource info for $exe ===`n"
-
-            # Look for version info
-            $verPattern = [regex]::Matches($text, "(?i)(FileVersion|ProductVersion|CompanyName|FileDescription|InternalName|OriginalFileName|ProductName|LegalCopyright)[\x00-\x1F]{1,50}([^\x00-\x1F]{2,})")
-            $resInfo += "--- Version Info ---`n"
-            foreach ($m in $verPattern) {
-              $resInfo += "  $($m.Groups[1].Value): $($m.Groups[2].Value)`n"
-            }
-
-            # Find common string resources
-            $resInfo += "`n--- Common strings ---`n"
+            # Categorize interesting strings
+            $interesting = @()
             $patterns = @{
-              "Copyright" = "(?i)copyright\s+[^\x00]+"
-              "Version" = "(?i)version\s+\d+\.\d+"
-              "Watch Dogs" = "Watch\s*Dogs"
-              "Trainer" = "(?i)trainer"
-              "Cheat" = "(?i)cheat"
-              "Health" = "(?i)(health|hp|life)"
-              "Ammo" = "(?i)(ammo|bullet|ammunition)"
-              "Money" = "(?i)(money|cash|gold|coins)"
-              "Speed" = "(?i)(speed|velocity)"
-              "Infinite" = "(?i)(infinite|inf|unlimited)"
-              "God Mode" = "(?i)(god\s*mode|godmode|invincib)"
-              "No Clip" = "(?i)(no\s*clip|noclip|fly)"
-              "Teleport" = "(?i)(teleport|tp|warp)"
+              "TRAINER" = "(?i)(trainer|cheat|hack|mod)"
+              "MEMORY" = "(?i)(readprocessmemory|writeprocessmemory|virtualalloc|openprocess)"
+              "GAME" = "(?i)(watch.?dogs|wd2|ubisoft|uplay)"
+              "FEATURE" = "(?i)(health|ammo|money|speed|god|infinite|noclip|teleport|unlimited|invincib)"
+              "KEYBIND" = "(?i)(hotkey|keybind|f1\s|f2\s|f3\s|f4\s|numpad|insert|delete)"
+              "PROCESS" = "(?i)(findwindow|enumerateprocess|processid|threadid)"
+              "MEMORY_ADDR" = "(?i)(0x[0-9a-f]{4,}|base\+|offset)"
             }
-
-            foreach ($key in $patterns.Keys) {
-              $matches = [regex]::Matches($text, $patterns[$key])
-              if ($matches.Count -gt 0) {
-                $unique = @()
-                foreach ($m in $matches) { $v = $m.Value.Trim(); if ($v -notin $unique -and $v.Length -lt 200) { $unique += $v } }
-                $resInfo += "  [$key] ($($unique.Count) matches):`n"
-                foreach ($u in $unique[0..([Math]::Min(9, $unique.Count-1))]) {
-                  $resInfo += "    $u`n"
+            foreach ($s in ($asciiStrings + $unicodeStrings)) {
+              foreach ($cat in $patterns.Keys) {
+                if ($s -match $patterns[$cat] -and $s.Length -lt 300) {
+                  $interesting += "[$cat] $s"
                 }
               }
             }
 
-            $resInfo | Out-File "$outDir/resources.txt" -Encoding UTF8
-          }
-        shell: pwsh
+            @"
+All ASCII Strings ($($asciiStrings.Count)):
+$($asciiStrings -join "`n")
 
-      - name: Try ILSpy disassembly fallback
+All Unicode Strings ($($unicodeStrings.Count)):
+$($unicodeStrings -join "`n")
+
+Interesting Strings ($($interesting.Count)):
+$($interesting | Sort-Object -Unique | Select-Object -First 200 -join "`n")
+"@ | Out-File "$outDir\strings.txt" -Encoding UTF8
+            Write-Host "Strings: ASCII=$($asciiStrings.Count) Unicode=$($unicodeStrings.Count) Interesting=$($interesting.Count)"
+
+            # --- Version info ---
+            Write-Host "--- Version info ---"
+            $verMatches = [regex]::Matches($text, "(?i)(FileVersion|ProductVersion|CompanyName|FileDescription|InternalName|OriginalFileName|ProductName|LegalCopyright|LegalTrademarks|Comments|PrivateBuild|SpecialBuild)[\x00-\x1F]{1,80}([^\x00-\x1F]{2,100})")
+            $verInfo = "Version Info: $file`n========================`n"
+            foreach ($m in $verMatches) {
+              $key = $m.Groups[1].Value
+              $val = $m.Groups[2].Value.Trim()
+              if ($val.Length -gt 2) { $verInfo += "$key : $val`n" }
+            }
+            $verInfo | Out-File "$outDir\version_info.txt"
+            Write-Host "Version info: done"
+
+            # --- Delphi detection ---
+            Write-Host "--- Delphi/FPC detection ---"
+            $delphiInfo = "Delphi/FPC Analysis: $file`n========================`n"
+            $delphiChecks = @{
+              "Delphi VCL" = "TForm|TButton|TLabel|TEdit|TComboBox|TListView"
+              "Delphi RTL" = "@Sysutils@|@Classes@|@Forms@|@Controls@"
+              "Borland" = "Borland|Embarcadero|CodeGear"
+              "FreePascal" = "FreePascal|FPC|Lazarus"
+              "Qt" = "Qt4|Qt5|QtCore|QtGui|QWidget"
+              "MFC" = "CWinApp|CWnd|AfxInit"
+              "WxWidgets" = "wxApp|wxFrame|wxWindow"
+              "Dear ImGui" = "ImGui|imgui|IMGUI"
+            }
+            foreach ($key in $delphiChecks.Keys) {
+              $matches = [regex]::Matches($text, $delphiChecks[$key])
+              if ($matches.Count -gt 0) {
+                $unique = $matches | ForEach-Object { $_.Value } | Sort-Object -Unique
+                $delphiInfo += "FOUND $key ($($matches.Count) matches): $($unique -join ', ')`n"
+              }
+            }
+            $delphiInfo | Out-File "$outDir\language_detect.txt"
+            Write-Host "Language detect: done"
+
+            Write-Host "DONE: $file"
+          }
+
+          Write-Host "`n==============================="
+          Write-Host "ALL ANALYSES COMPLETE"
+          Write-Host "==============================="
+
+      - name: Create zip per trainer
+        shell: pwsh
         run: |
-          foreach ($exe in @("WD2_FLiNG_Trainer.exe","WD2_FLiNG_EAC.exe","WD2_Generic_Trainer.exe","WD2_Baracuda_Trainer.exe")) {
-            $name = [IO.Path]::GetFileNameWithoutExtension($exe)
-            $outDir = "output\$name"
-            # Try IL disassembly
-            try {
-              $output = ilspycmd -l "$exe" 2>&1 | Out-String
-              $output | Out-File "$outDir\ilspy_disasm.txt" -Encoding UTF8
-            } catch {
-              "Not a .NET assembly - IL disassembly not possible" | Out-File "$outDir\ilspy_disasm.txt"
+          $ErrorActionPreference = "Continue"
+          $names = @("WD2_FLiNG_Trainer","WD2_FLiNG_EAC","WD2_Generic_Trainer","WD2_Baracuda_Trainer")
+          foreach ($n in $names) {
+            if (Test-Path "output\$n") {
+              Compress-Archive -Path "output\$n\*" -DestinationPath "output\${n}_analysis.zip" -Force
             }
           }
-        shell: pwsh
-
-      - name: Create final zip per trainer
-        run: |
-          $exes = @("WD2_FLiNG_Trainer","WD2_FLiNG_EAC","WD2_Generic_Trainer","WD2_Baracuda_Trainer")
-          foreach ($name in $exes) {
-            Compress-Archive -Path "output\$name\*" -DestinationPath "output\${name}_full_analysis.zip" -Force
+          if (Test-Path "output") {
+            Compress-Archive -Path "output\*\*" -DestinationPath "output\ALL_ANALYSIS.zip" -Force -ErrorAction SilentlyContinue
           }
-          Compress-Archive -Path "output\*\*" -DestinationPath "output\ALL_ANALYSIS.zip" -Force -ErrorAction SilentlyContinue
-        shell: pwsh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: full-analysis-dnspy-ilspy
+          name: analysis-dnspy-ilspy
           path: output/
           retention-days: 30
 
