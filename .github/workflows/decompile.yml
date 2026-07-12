@@ -1,4 +1,4 @@
-name: Decompile Trainers (dnSpy + ILSpy)
+name: Decompile Trainers
 
 on:
   push:
